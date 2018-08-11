@@ -14,6 +14,7 @@ import paho.mqtt.client as mqtt
 import MySQLdb
 import sqlite3
 import os, sys
+import re
 import time, datetime
 import signal
 import logging
@@ -145,21 +146,47 @@ def on_message(client, userdata, message):
 		cursor = db.cursor()
 
 		try:
-			# INSERT/UPDATE record
-			if message.payload!='':
-				active = ', active=1'
-			else:
-				active = ''
-			ts = datetime.datetime.fromtimestamp(int(message.timestamp)).strftime('%Y-%m-%d %H:%M:%S')
-			if args.sqltype=='mysql':
-				cursor.execute("INSERT INTO `{0}` SET `ts`='{1}',`topic`='{2}',`value`='{3}',`qos`='{4}',`retain`='{5}'{6} ON DUPLICATE KEY UPDATE `ts`='{1}',`value`='{3}',`qos`='{4}',`retain`='{5}'{6}".format(args.sqltable, ts, message.topic, message.payload, message.qos, message.retain, active))
-			elif args.sqltype=='sqlite':
-				# strtime=str(time.strftime("%Y-%m-%d %H:%M:%S"))
-				cursor.execute("INSERT OR IGNORE INTO `{0}` (ts,topic,value,qos,retain) VALUES('{1}','{2}','{3}','{4}','{5}')".format(args.sqltable, ts, message.topic, message.payload, message.qos, message.retain))
-				cursor.execute("UPDATE `{0}` SET ts='{1}', value='{3}', qos='{4}', retain='{5}' WHERE topic='{2}'".format(args.sqltable, ts, message.topic, message.payload, message.qos, message.retain))
+			# for topic = "rawdata", insert to another table raw_data
+			if message.topic=='rawdata':
+				#print(message.payload)
+				#INSERT INTO `raw_data` set `timestamp`=now(), `index`=22, `driver_name`="bbb";
+				sqlstring = "INSERT INTO `rawdata` SET `timestamp`=now(3) "
+				key_value_pairs = re.findall(r'(?:[^\s;"]|"(?:\\.|[^"])*")+', message.payload)
+				for key_value_pair in key_value_pairs:
+					key, value = key_value_pair.split("=")
+					#print(key)
+					#print(value)
+					#sqlstring += " `{0}`=`{1}`"
+					sqlstring += ",`{}`='{}'".format(key, value)
+					#print(sqlstring)
 
-			db.commit()
-			debuglog(1,"SQL successful written: table='{}', topic='{}', value='{}', qos='{}', retain='{}'".format(args.sqltable, message.topic, message.payload, message.qos, message.retain))
+				#print(sqlstring)
+
+				cursor.execute(sqlstring)
+				db.commit()
+				debuglog(1, "SQL successful written table=rawdata: {}".format(sqlstring))
+			else:
+				#print(message)
+				#print(message.topic)
+				#print(message.payload)
+				
+				#print("ignore")
+				#return;
+				# INSERT/UPDATE record
+				if message.payload!='':
+					active = ', active=1'
+				else:
+					active = ''
+				ts = datetime.datetime.fromtimestamp(int(message.timestamp)).strftime('%Y-%m-%d %H:%M:%S')
+				if args.sqltype=='mysql':
+					cursor.execute("INSERT INTO `{0}` SET `ts`='{1}',`topic`='{2}',`value`='{3}',`qos`='{4}',`retain`='{5}'{6} ON DUPLICATE KEY UPDATE `ts`='{1}',`value`='{3}',`qos`='{4}',`retain`='{5}'{6}".format(args.sqltable, ts, message.topic, message.payload, message.qos, message.retain, active))
+				elif args.sqltype=='sqlite':
+					# strtime=str(time.strftime("%Y-%m-%d %H:%M:%S"))
+					cursor.execute("INSERT OR IGNORE INTO `{0}` (ts,topic,value,qos,retain) VALUES('{1}','{2}','{3}','{4}','{5}')".format(args.sqltable, ts, message.topic, message.payload, message.qos, message.retain))
+					cursor.execute("UPDATE `{0}` SET ts='{1}', value='{3}', qos='{4}', retain='{5}' WHERE topic='{2}'".format(args.sqltable, ts, message.topic, message.payload, message.qos, message.retain))
+
+				db.commit()
+				debuglog(1,"SQL successful written: table='{}', topic='{}', value='{}', qos='{}', retain='{}'".format(args.sqltable, message.topic, message.payload, message.qos, message.retain))
 
 		except MySQLdb.Error, e:
 			try:
