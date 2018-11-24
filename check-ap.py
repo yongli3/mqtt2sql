@@ -12,7 +12,10 @@ from email.mime.text import MIMEText
 
 first_time = 1
 
-interval = 1800
+# there are some not found items!
+missing = 1
+default_interval = 1800
+interval = default_interval
 
 log = syslog.openlog("check-ap", syslog.LOG_PID)
 syslog.syslog(syslog.LOG_INFO, "start check-ap...%s" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -62,6 +65,10 @@ while True:
         first_time = 0
         if (len(missing_subject) == 0):
             #sys.exit()
+            if missing == 1:
+                # restore from missing status, must out mail
+                missing = 0
+            
             syslog.syslog(syslog.LOG_INFO,"All find!")
             # 
             #now = datetime.datetime.now()
@@ -72,6 +79,7 @@ while True:
                 time.sleep(interval)
                 continue
         else:
+            missing = 1
             syslog.syslog(syslog.LOG_ERR,"AP missing! Send out mail!")
     else:
         # first time, send mail always
@@ -82,6 +90,9 @@ while True:
     sender = "sdssly2@sina.com"
     receiver = "28277961@qq.com"
     cc = "sdssly2@sina.com,sdssly@sina.com"
+    
+    #
+    find_subject = "ALL okay!" 
     content = "List:\r\n" + missing_subject + find_subject
     
     syslog.syslog(syslog.LOG_INFO,"content:%s" % content)
