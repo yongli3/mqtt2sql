@@ -134,7 +134,7 @@ def on_message(client, userdata, message):
 		This is a class with members topic, payload, qos, retain.
 	"""
 	if args.verbose>0:
-		log('{} {} [QOS {} Retain {}]'.format(message.topic, message.payload, message.qos, message.retain))
+		debuglog(1, 'on_message: {} {} [QOS {} Retain {}]'.format(message.topic, message.payload, message.qos, message.retain))
 
 	try:
 		debuglog(1,"SQL type is '{}'".format(args.sqltype))
@@ -198,9 +198,11 @@ def on_message(client, userdata, message):
 			# Rollback in case there is any error
 			db.rollback()
 			log('ERROR adding record to MYSQL')
+			exit(1)
 
 	except IndexError:
 		log("MySQL Error: {}".format(e))
+		exit(1)
 
 	db.close()
 
@@ -407,6 +409,7 @@ if __name__ == "__main__":
 		except Exception, e:
 			log('ERROR: loop() - {}'.format(e))
 			time.sleep(0.25)
+			exit(3, "loop error")
 
 	# disconnect from server
 	exit(rc,"MQTT disconnected")

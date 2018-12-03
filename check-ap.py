@@ -14,7 +14,7 @@ first_time = 1
 
 # there are some not found items!
 missing = 1
-default_interval = 1800
+default_interval = 2400
 interval = default_interval
 
 log = syslog.openlog("check-ap", syslog.LOG_PID)
@@ -26,8 +26,9 @@ while True:
     missing_subject = ""
     db = MySQLdb.connect("localhost", "dev", "dev", "dev")
     cursor = db.cursor(MySQLdb.cursors.DictCursor)
-
-    sqlstring = "select topic from  `mqtt` order by ts desc limit 40"
+    
+    sqlstring = "select topic from  `mqtt` where ts > (now() - interval 20 minute) order by ts desc"
+    #sqlstring = "select topic from  `mqtt` order by ts desc limit 45"
     cursor.execute(sqlstring)
     topics = cursor.fetchall()
 
@@ -58,6 +59,7 @@ while True:
     db.close()
 
     now = datetime.datetime.now()
+    s1 = now.second + now.minute * 60
     delta_m = now.minute
     delta_s = now.second + delta_m * 60
     if first_time != 1:
@@ -89,13 +91,13 @@ while True:
 # send mail
     sender = "sdssly2@sina.com"
     receiver = "28277961@qq.com"
-    cc = "sdssly2@sina.com,sdssly@sina.com"
+    cc = "sdssly2@sina.com"
     
     #
     find_subject = "ALL okay!" 
     content = "List:\r\n" + missing_subject + find_subject
     
-    syslog.syslog(syslog.LOG_INFO,"content:%s" % content)
+    syslog.syslog(syslog.LOG_INFO,"content:%s" % str(content))
     msg = MIMEText(content)
     msg['From'] = sender
     msg['To'] = receiver
@@ -103,12 +105,15 @@ while True:
     msg['Subject'] = "Running AP Report %s" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     server = smtplib.SMTP_SSL('{}:{}'.format("smtp.sina.com", "465"))
-    server.login("sdssly2", "MqttAdmin98")
+    server.login("sdssly2", "")
     #server.send_message(msg)
     message = "From %s\nTo: %s\nSubject: %s\nDate: %s\n\n%s" % (sender, receiver, msg['Subject'], datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), content)
     #print("message: %s %s " % (message, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
     syslog.syslog(syslog.LOG_INFO,"msg: %s %s " % (msg, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
     rcpt = cc.split(",") + [receiver]
+    
+    #now = datetime.datetime.now()
+    #s1 = now.second + now.minute * 60
     try:
         server.sendmail(sender, rcpt , msg.as_string())
         #print("quit")
@@ -121,11 +126,13 @@ while True:
         syslog.syslog(syslog.LOG_INFO,"Send mail okay! quit server")
         server.quit()
     
+    now = datetime.datetime.now()
+    s2 = now.second + now.minute * 60
     # Adjust time
-    syslog.syslog(syslog.LOG_INFO,"sleep- m=%d s=%d interval=%d" % (delta_m, delta_s, interval))
-    if interval > delta_s:
-        time.sleep(interval - delta_s)
-    else:
-        time.sleep(interval)
+    syslog.syslog(syslog.LOG_INFO,"sleep- s1=%d s2=%d interval=%d" % (s1, s2, interval))
+    #if interval > delta_s:
+    #    time.sleep(interval - delta_s)
+    #else:
+    time.sleep(interval - (s2 - s1))
 
 
