@@ -32,7 +32,7 @@ while True:
     cursor.execute(sqlstring)
     topics = cursor.fetchall()
 
-    sqlstring = "select src_apstation from  `aplist`"
+    sqlstring = "select src_apstation from  `aplist` where monitor = 1"
     cursor.execute(sqlstring)
 
     aplist = cursor.fetchall()
@@ -57,6 +57,8 @@ while True:
 
     db.commit()
     db.close()
+    
+    #quit()
 
     now = datetime.datetime.now()
     s1 = now.second + now.minute * 60
@@ -105,7 +107,7 @@ while True:
     msg['Subject'] = "Running AP Report %s" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     server = smtplib.SMTP_SSL('{}:{}'.format("smtp.sina.com", "465"))
-    server.login("sdssly2", "")
+    server.login("sdssly2", "MqttAdmin98")
     #server.send_message(msg)
     message = "From %s\nTo: %s\nSubject: %s\nDate: %s\n\n%s" % (sender, receiver, msg['Subject'], datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), content)
     #print("message: %s %s " % (message, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
