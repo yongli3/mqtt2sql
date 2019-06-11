@@ -14,7 +14,7 @@ first_time = 1
 
 # there are some not found items!
 missing = 1
-default_interval = 2400
+default_interval = 3600
 interval = default_interval
 
 log = syslog.openlog("check-ap", syslog.LOG_PID)
@@ -24,6 +24,9 @@ while True:
     syslog.syslog(syslog.LOG_INFO,"Checking on %s " % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     find_subject = ""
     missing_subject = ""
+    lora_ok = ""
+    lora_fail = ""
+
     db = MySQLdb.connect("localhost", "dev", "dev", "dev")
     cursor = db.cursor(MySQLdb.cursors.DictCursor)
     
@@ -32,32 +35,54 @@ while True:
     cursor.execute(sqlstring)
     topics = cursor.fetchall()
 
-    sqlstring = "select src_apstation from  `aplist` where monitor = 1"
+    sqlstring = "select src_apstation from  `rawdata` where `timestamp` > (now() - interval 480 minute) order by `timestamp` desc"
     cursor.execute(sqlstring)
+    rawdatas = cursor.fetchall()
 
+    sqlstring = "select src_apstation from  `aplist` where monitor = 1 order by src_apstation"
+    cursor.execute(sqlstring)
     aplist = cursor.fetchall()
     syslog.syslog(syslog.LOG_INFO, str(aplist))
     for row in aplist:
         ap = row["src_apstation"]
-        #print(ap)
+        #print("AP = %s" % ap)
         find = 0
         for topic in topics:
-            #print(topic.topic)
+            #print("topic = %s" % topic["topic"])
             ap_topic = topic["topic"].split('-')[0]
-            #print(ap_topic)
+            #print("ap_topic=%s" % ap_topic)
             if (ap_topic == str(ap)):
                 #print("Find! " + str(ap)) 
                 find = 1
                 break
+
+        lora = 0
+        for rawdata in rawdatas:
+            #print("rawdata = %s" % rawdata["src_apstation"])
+            if (rawdata["src_apstation"] == ap):
+                #print("Lora! " + str(ap))
+                lora = 1
+                break
+
         if find == 1:
             #subject = subject.format("{0} find!\r\n", ap)
-            find_subject = "%s AP %d found!\r\n" % (find_subject, ap)
+            find_subject = "%s AP %d online!\r\n" % (find_subject, ap)
         else:
-            missing_subject = "%s AP %d NOT found!\r\n" % (missing_subject, ap)
+            missing_subject = "%s AP %d offline!\r\n" % (missing_subject, ap)
+
+        if lora == 1:
+            lora_ok = "%s AP %d LORA data okay!\r\n" % (lora_ok, ap)
+        else:
+            lora_fail = "%s AP %d LORA data Fail!\r\n" % (lora_fail, ap)
 
     db.commit()
     db.close()
-    
+
+    #print("query DB finish.")
+    #print(find_subject)
+    #print(missing_subject)
+    #print(lora_ok)
+    #print(lora_fail)	
     #quit()
 
     now = datetime.datetime.now()
@@ -89,6 +114,8 @@ while True:
         # first time, send mail always
         first_time = 0
 
+    #print("query DB okay...")
+    #quit()
 #  delta_s < interval 
 # send mail
     sender = "sdssly2@sina.com"
@@ -96,15 +123,20 @@ while True:
     cc = "sdssly2@sina.com"
     
     #
-    find_subject = "ALL okay!" 
+    if (len(missing_subject) == 0):
+        find_subject = "ALL online!"
+
     content = "List:\r\n" + missing_subject + find_subject
-    
+    content += "\r\n\r\nLORA:\r\n" + lora_fail
+    print("content=%s" % content)
     syslog.syslog(syslog.LOG_INFO,"content:%s" % str(content))
     msg = MIMEText(content)
     msg['From'] = sender
     msg['To'] = receiver
     msg['Cc'] = cc
     msg['Subject'] = "Running AP Report %s" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    #quit()
 
     server = smtplib.SMTP_SSL('{}:{}'.format("smtp.sina.com", "465"))
     server.login("sdssly2", "MqttAdmin98")
