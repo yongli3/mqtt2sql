@@ -161,9 +161,12 @@ def on_message(client, userdata, message):
 					#print(sqlstring)
 
 				#print(sqlstring)
+                                try:
+				    cursor.execute(sqlstring)
+				    db.commit()
+                                except MySQLdb.Error, e:
+                                    debuglog(1, "SQL execute except!")
 
-				cursor.execute(sqlstring)
-				db.commit()
 				debuglog(1, "SQL successful written table=rawdata: {}".format(sqlstring))
 			else:
 				#print(message)
