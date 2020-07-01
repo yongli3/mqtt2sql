@@ -358,7 +358,7 @@ if __name__ == "__main__":
 	scriptname = os.path.basename(sys.argv[0])
 
 	# Log program start
-	log('{} v{} start'.format(scriptname, VER))
+	log('{} v{} start...'.format(scriptname, VER))
 
 	if args.verbose>0:
 		log('  MQTT server: {}:{} {}{}'.format(args.mqtthost, args.mqttport, 'SSL' if (args.mqttcafile is not None) else '', ' (suppress TLS verification)' if args.mqttinsecure else ''))
@@ -373,57 +373,58 @@ if __name__ == "__main__":
 		if args.verbose > 0:
 			log('  Verbose level: {}'.format(args.verbose))
 
-	# Create MQTT client and set callback handler
-	mqttc = mqtt.Client(scriptname)
-	if args.debug>0:
-		if args.debug==1:
-			logging.basicConfig(level=logging.DEBUG)
-		elif args.debug==2:
-			logging.basicConfig(level=logging.WARNING)
-		elif args.debug==3:
-			logging.basicConfig(level=logging.INFO)
-		elif args.debug>=4:
-			logging.basicConfig(level=logging.DEBUG)
-		logger = logging.getLogger(__name__)
-		mqttc.enable_logger(logger)
-	mqttc.on_connect = on_connect
-	mqttc.on_message = on_message
-	mqttc.on_publish = on_publish
-	mqttc.on_subscribe = on_subscribe
-	mqttc.on_log = on_log
+	while True:
+		# Create MQTT client and set callback handler
+		mqttc = mqtt.Client(scriptname)
+		if args.debug>0:
+			if args.debug==1:
+				logging.basicConfig(level=logging.DEBUG)
+			elif args.debug==2:
+				logging.basicConfig(level=logging.WARNING)
+			elif args.debug==3:
+				logging.basicConfig(level=logging.INFO)
+			elif args.debug>=4:
+				logging.basicConfig(level=logging.DEBUG)
+			logger = logging.getLogger(__name__)
+			mqttc.enable_logger(logger)
+		mqttc.on_connect = on_connect
+		mqttc.on_message = on_message
+		mqttc.on_publish = on_publish
+		mqttc.on_subscribe = on_subscribe
+		mqttc.on_log = on_log
 
-	# cafile controls TLS usage
-	if args.mqttcafile is not None:
-		if args.mqttcertfile is not None:
-			mqttc.tls_set(args.mqttcafile,
-			certfile=args.mqttcertfile,
-			keyfile=args.mqttkeyfile,
-			cert_reqs=ssl.CERT_REQUIRED)
-		else:
-			mqttc.tls_set(args.mqttcafile, cert_reqs=ssl.CERT_REQUIRED)
-		mqttc.tls_insecure_set(args.mqttinsecure)
+		# cafile controls TLS usage
+		if args.mqttcafile is not None:
+			if args.mqttcertfile is not None:
+				mqttc.tls_set(args.mqttcafile,
+				certfile=args.mqttcertfile,
+				keyfile=args.mqttkeyfile,
+				cert_reqs=ssl.CERT_REQUIRED)
+			else:
+				mqttc.tls_set(args.mqttcafile, cert_reqs=ssl.CERT_REQUIRED)
+			mqttc.tls_insecure_set(args.mqttinsecure)
 
-	# username & password may be None
-	if args.mqttusername is not None:
-		mqttc.username_pw_set(args.mqttusername, args.mqttpassword)
+		# username & password may be None
+		if args.mqttusername is not None:
+			mqttc.username_pw_set(args.mqttusername, args.mqttpassword)
 
-	# Attempt to connect to broker. If this fails, issue CRITICAL
-	debuglog(1,"mqttc.connect({}, {}, 60)".format(args.mqtthost, args.mqttport))
-	try:
-		rc=mqttc.connect(args.mqtthost, args.mqttport, 60)
-		debuglog(1,"mqttc.connect() return {}".format(rc))
-	except Exception, e:
-		exit(3, 'Connection to {}:{} failed: {}'.format(args.mqtthost, args.mqttport, str(e)))
-
-	# Main loop as long as no error occurs
-	rc = 0
-	while rc == 0:
+		# Attempt to connect to broker. If this fails, issue CRITICAL
+		debuglog(1,"mqttc.connect({}, {}, 60)".format(args.mqtthost, args.mqttport))
 		try:
-			rc = mqttc.loop()
+			rc=mqttc.connect(args.mqtthost, args.mqttport, 60)
+			debuglog(1,"mqttc.connect() return {}".format(rc))
 		except Exception, e:
-			log('ERROR: loop() - {}'.format(e))
-			time.sleep(0.25)
-			exit(3, "loop error")
+			debuglog(1, 'Connection to {}:{} failed: {}'.format(args.mqtthost, args.mqttport, str(e)))
+
+		# Main loop as long as no error occurs
+		rc = 0
+		while rc == 0:
+			try:
+				rc = mqttc.loop()
+			except Exception, e:
+				log('ERROR: loop() - {}'.format(e))
+				time.sleep(0.25)
+				debuglog(1, "loop error rc={}".format(rc))
 
 	# disconnect from server
 	exit(rc,"MQTT disconnected")
