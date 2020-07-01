@@ -148,26 +148,37 @@ def on_message(client, userdata, message):
 		try:
 			# for topic = "rawdata", insert to another table raw_data
 			if message.topic=='rawdata':
-				#print(message.payload)
+                                payloadMsg = message.payload
+                                debuglog(1, "payload=[{}]".format(payloadMsg))
+                                payloadMsg.replace(" ", "X")
+                                debuglog(1, "payload2=[{}]".format(payloadMsg))
+                                #s1 = ''.join([i if ord(i) > 31 else '?' for i in s])
+                                s1 = "".join([i if ord(i) > 31 else '?' for i in payloadMsg])
+                                #s1 = payloadMsg.encode('utf8', 'ignore')
+                                debuglog(1, "s1=[{}]".format(s1))
 				#INSERT INTO `raw_data` set `timestamp`=now(), `index`=22, `driver_name`="bbb";
 				sqlstring = "INSERT INTO `rawdata` SET `timestamp`=now(3) "
-				key_value_pairs = re.findall(r'(?:[^\s;"]|"(?:\\.|[^"])*")+', message.payload)
+				key_value_pairs = re.findall(r'(?:[^\s;"]|"(?:\\.|[^"])*")+', s1)
 				for key_value_pair in key_value_pairs:
+                                    try:
 					key, value = key_value_pair.split("=")
-					#print(key)
+                                    except ValueError:
+                                        continue
+
+                                    debuglog(1, "key=[{}] value=[{}]".format(key, value))
 					#print(value)
 					#sqlstring += " `{0}`=`{1}`"
-					sqlstring += ",`{}`='{}'".format(key, value)
-					#print(sqlstring)
+                                    sqlstring += ",`{}`='{}'".format(key, value)
+                                    debuglog(1, "sql={}".format(sqlstring))
 
-				#print(sqlstring)
+				debuglog(1, "sqlstring={}".format(sqlstring))
                                 try:
 				    cursor.execute(sqlstring)
 				    db.commit()
                                 except MySQLdb.Error, e:
-                                    debuglog(1, "SQL execute except!")
+                                    debuglog(1, "SQL execute except! {}".format(e))
 
-				debuglog(1, "SQL successful written table=rawdata: {}".format(sqlstring))
+				debuglog(1, "SQL successful written table=rawdata: sqlstring=[{}]".format(sqlstring))
 			else:
 				#print(message)
 				#print(message.topic)
