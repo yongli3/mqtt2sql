@@ -137,46 +137,44 @@ def on_message(client, userdata, message):
 		debuglog(1, 'on_message: {} {} [QOS {} Retain {}]'.format(message.topic, message.payload, message.qos, message.retain))
 
 	try:
-		debuglog(1,"SQL type is '{}'".format(args.sqltype))
+		#debuglog(1,"SQL type is '{}'".format(args.sqltype))
 		if args.sqltype=='mysql':
 			db = MySQLdb.connect(args.sqlhost, args.sqlusername, args.sqlpassword, args.sqldb)
 		elif args.sqltype=='sqlite':
 			db = sqlite3.connect(args.sqldb)
 
 		cursor = db.cursor()
-
 		try:
 			# for topic = "rawdata", insert to another table raw_data
 			if message.topic=='rawdata':
-                                payloadMsg = message.payload
-                                debuglog(1, "payload=[{}]".format(payloadMsg))
-                                payloadMsg.replace(" ", "X")
-                                debuglog(1, "payload2=[{}]".format(payloadMsg))
-                                #s1 = ''.join([i if ord(i) > 31 else '?' for i in s])
-                                s1 = "".join([i if ord(i) > 31 else '?' for i in payloadMsg])
-                                #s1 = payloadMsg.encode('utf8', 'ignore')
-                                debuglog(1, "s1=[{}]".format(s1))
+				payloadMsg = message.payload
+				debuglog(1, "payloadMsg=[{}]".format(payloadMsg))
+				payloadMsg = payloadMsg.replace(" ", "X")
+				debuglog(1, "payload2=[{}]".format(payloadMsg))
+				#s1 = ''.join([i if ord(i) > 31 else '?' for i in s])
+				# remove non-print ascii
+				s1 = "".join([i if ord(i) > 31 else '?' for i in payloadMsg])
+				#s1 = payloadMsg.encode('utf8', 'ignore')
+				debuglog(1, "s1=[{}]".format(s1))
 				#INSERT INTO `raw_data` set `timestamp`=now(), `index`=22, `driver_name`="bbb";
 				sqlstring = "INSERT INTO `rawdata` SET `timestamp`=now(3) "
 				key_value_pairs = re.findall(r'(?:[^\s;"]|"(?:\\.|[^"])*")+', s1)
 				for key_value_pair in key_value_pairs:
-                                    try:
-					key, value = key_value_pair.split("=")
-                                    except ValueError:
-                                        continue
+					try:
+						key, value = key_value_pair.split("=")
+					except ValueError:
+						continue
 
-                                    debuglog(1, "key=[{}] value=[{}]".format(key, value))
-					#print(value)
-					#sqlstring += " `{0}`=`{1}`"
-                                    sqlstring += ",`{}`='{}'".format(key, value)
-                                    debuglog(1, "sql={}".format(sqlstring))
+					#debuglog(1, "key=[{}] value=[{}]".format(key, value))
+					sqlstring += ",`{}`='{}'".format(key, value)
+					#debuglog(1, "sql={}".format(sqlstring))
 
 				debuglog(1, "sqlstring={}".format(sqlstring))
-                                try:
-				    cursor.execute(sqlstring)
-				    db.commit()
-                                except MySQLdb.Error, e:
-                                    debuglog(1, "SQL execute except! {}".format(e))
+				try:
+					cursor.execute(sqlstring)
+					db.commit()
+				except MySQLdb.Error, e:
+					debuglog(1, "SQL execute except! {}".format(e))
 
 				debuglog(1, "SQL successful written table=rawdata: sqlstring=[{}]".format(sqlstring))
 			else:
